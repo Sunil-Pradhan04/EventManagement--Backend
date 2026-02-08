@@ -1,25 +1,35 @@
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { Pinecone } from "@pinecone-database/pinecone";
-
+import dotenv from "dotenv";
 dotenv.config();
 
-let isConnected = false;   // 🔴 ADD THIS
+let isConnected = false;
+let pinecone;
+let index;
 
 export const dbConnection = async () => {
-  if (isConnected) return;  // 🔴 ADD THIS
+  if (isConnected) return;
 
   try {
-    await mongoose.connect(process.env.MONGO_URL);
-    isConnected = true;     // 🔴 ADD THIS
+    await mongoose.connect(process.env.MONGO_URL, {
+      dbName: "EVENT",
+      serverSelectionTimeoutMS: 5000,
+    });
+
+    isConnected = true;
     console.log("✅ MongoDB Connected");
   } catch (err) {
     console.error("❌ MongoDB Error:", err.message);
   }
 };
 
-const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY,
-});
+// ---------- Pinecone Cache ----------
+if (!pinecone) {
+  pinecone = new Pinecone({
+    apiKey: process.env.PINECONE_API_KEY,
+  });
 
-export const index = pinecone.index(process.env.PINECONE_INDEX);
+  index = pinecone.index(process.env.PINECONE_INDEX);
+}
+
+export { index };
