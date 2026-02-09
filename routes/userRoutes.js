@@ -12,6 +12,7 @@ import {
 } from "../function/function.js";
 
 import express from "express";
+import jwt from "jsonwebtoken";
 import { AdminAuth, Auth } from "../middleware/Auth.js";
 import {
   addEventAnoussment,
@@ -34,13 +35,20 @@ import {
 const router = express.Router();
 
 router.get("/check-session", (req, res) => {
-  if (!req.session.userId) {
+  const token = req.cookies.token;
+  if (!token) {
     return res.status(401).json({ loggedIn: false });
   }
 
-  return res.status(200).json({
-    loggedIn: true,
-  });
+  try {
+    const decoded = jwt.verify(token, process.env.SESSION_SECRET);
+    return res.status(200).json({
+      loggedIn: true,
+      user: decoded, // Optional: send user info back
+    });
+  } catch (err) {
+    return res.status(401).json({ loggedIn: false });
+  }
 });
 
 router.post("/create", createUser);

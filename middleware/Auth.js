@@ -1,23 +1,47 @@
+import jwt from "jsonwebtoken";
+
+export const generateToken = (userId, role) => {
+  return jwt.sign({ userId, role }, process.env.SESSION_SECRET, {
+    expiresIn: "15d",
+  });
+};
+
 export const Auth = (req, res, next) => {
-  try{
-    if(!req.session.userId){
-      return res.status(401).json({ message: "Unauthorised Access" });
+  try {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized Access" });
     }
+
+    const decoded = jwt.verify(token, process.env.SESSION_SECRET);
+    req.userId = decoded.userId;
+    req.role = decoded.role;
+    req.session = { userId: decoded.userId, role: decoded.role }; // Backward compatibility (optional)
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid Token", error: err.message });
   }
-  catch(err){
-    return res.status(401).json({ message: "Somthing wants wrong", error: err.message });
-  }
-  next();
-}
+};
 
 export const AdminAuth = (req, res, next) => {
-  try{
-    if(!req.session.userId || req.session.role !== "admin"){
-      return res.status(401).json({ message: "Unauthorised Access" });
+  try {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized Access" });
     }
+
+    const decoded = jwt.verify(token, process.env.SESSION_SECRET);
+    if (decoded.role !== "admin") {
+      return res.status(403).json({ message: "Admin Access Required" });
+    }
+
+    req.userId = decoded.userId;
+    req.role = decoded.role;
+    req.session = { userId: decoded.userId, role: decoded.role }; // Backward compatibility
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid Token", error: err.message });
   }
-  catch{
-    return res.status(401).json({ message: "Somthing wants wrong" });
-  }
-  next();
-}
+};

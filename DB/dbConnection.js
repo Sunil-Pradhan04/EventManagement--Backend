@@ -20,7 +20,7 @@ export const dbConnection = async () => {
     global._mongoose.promise = mongoose.connect(MONGO_URL, {
       dbName: "EVENT",
       serverSelectionTimeoutMS: 8000,
-      maxPoolSize: 3,     // limit connections
+      maxPoolSize: 1,     // limit connections
       family: 4           // faster DNS
     });
   }

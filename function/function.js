@@ -2,7 +2,8 @@ import { Admin, config, User, PasswordReset } from "../model/userSchema1.js";
 import { Event } from "../model/HubSchema.js";
 import { sendPasswordChangeMail, sendVerificationMail } from "../middleware/emailSetup.js";
 import bcrypt from "bcryptjs";
-import session from "express-session";
+import jwt from "jsonwebtoken";
+import { generateToken } from "../middleware/Auth.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -114,8 +115,15 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    req.session.userId = account.email;
-    req.session.role = role;
+    // Generate Token
+    const token = generateToken(account.email, role);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 15 * 24 * 60 * 60 * 1000, // 15 days
+    });
 
     res.status(200).json({
       message: "Login successful",
@@ -152,8 +160,15 @@ export const veryfayUser = async (req, res) => {
     account.expireAt = undefined;
     await account.save();
 
-    req.session.userId = account.email;
-    req.session.role = role;
+    // Generate Token
+    const token = generateToken(account.email, role);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({
       message: `${role} verified and logged in successfully`,
@@ -212,12 +227,12 @@ export const getUsers = async (req, res) => {
   try {
     let account;
 
-    if (req.session.role === "admin") {
-      account = await Admin.findOne({ email: req.session.userId }).select(
+    if (req.role === "admin") {
+      account = await Admin.findOne({ email: req.userId }).select(
         "-password -__v"
       );
     } else {
-      account = await User.findOne({ email: req.session.userId }).select(
+      account = await User.findOne({ email: req.userId }).select(
         "-password -__v"
       );
     }
@@ -237,7 +252,7 @@ export const getUsers = async (req, res) => {
     res.status(200).json({
       ...account.toObject(),
       RegistrEvents: populatedEvents,
-      role: req.session.role,
+      role: req.role,
     });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -302,13 +317,20 @@ export const createPasswordResetSession = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid or expired reset code" });
     }
-    req.session.userId = email;
-    req.session.role = resetRequest.role;
+    // Generate short-lived reset token (10 mins)
+    const resetToken = jwt.sign(
+      { resetEmail: email, role: resetRequest.role },
+      process.env.SESSION_SECRET,
+      { expiresIn: "10m" }
+    );
 
-    req.session.passwordReset = {
-      resetEmail: email,
-      expires: Date.now() + 2 * 60 * 1000,
-    };
+    res.cookie("resetToken", resetToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 10 * 60 * 1000, // 10 minutes
+    });
+
     res.status(200).json({ message: "Reset session created. You can now change your password." });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -320,7 +342,21 @@ export const createPasswordResetSession = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { newPassword } = req.body;
-    const email = req.session.passwordReset?.resetEmail;
+
+    const resetToken = req.cookies.resetToken;
+    if (!resetToken) {
+      return res.status(401).json({ message: "Session expired or invalid" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.SESSION_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired reset token" });
+    }
+
+    const email = decoded.resetEmail;
+
     console.log(email);
     if (!email) {
       return res.status(403).json({ message: "Unauthorized access" });
@@ -337,7 +373,13 @@ export const changePassword = async (req, res) => {
     account.password = hashedPassword;
     account.expireAt = undefined;
     await account.save();
-    delete req.session.passwordReset;
+
+    res.clearCookie("resetToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none"
+    });
+
     await PasswordReset.deleteOne({ email });
     res.status(200).json({ message: `Password changed successfully complited` });
   } catch (err) {
@@ -347,11 +389,10 @@ export const changePassword = async (req, res) => {
 
 // ------------------- LOGOUT -------------------
 export const logoutUser = async (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: "Could not log out, please try again" });
-    }
-    res.clearCookie("connect.sid");
-    return res.status(200).json({ message: "Logout successful" });
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
   });
+  return res.status(200).json({ message: "Logout successful" });
 };
