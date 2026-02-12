@@ -26,7 +26,6 @@ app.use((req, res, next) => {
 
 app.use("/api/EVENT", userRoutes);
 
-// connect DB once
 dbConnection();
 
 export default app;

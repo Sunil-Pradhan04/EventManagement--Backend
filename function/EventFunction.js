@@ -372,12 +372,56 @@ export const sendEmail = async (req, res) => {
 export const chatWithAi = async (req, res) => {
   const { message, Ename, language } = req.body;
   const userId = req.session.userId;
+  const role = req.session.role;
+
   try {
+    // 1. Check for "Rules" optimization (Skip AI)
+    const lowerMsg = message.toLowerCase();
+    const isAskingRules =
+      lowerMsg.includes("rule") ||
+      lowerMsg.includes("guideline") ||
+      lowerMsg.includes("regulation") ||
+      lowerMsg.includes("instruction");
+
+    if (isAskingRules) {
+      const event = await Event.findOne({ Ename }, "rules");
+      if (event && event.rules) {
+        return res.status(200).json({
+          response: `Here are the rules for ${Ename}:\n\n${event.rules}`,
+          remainingQuestions: "Unlimited", // Rules don't count
+        });
+      }
+    }
+
+    // 2. Check Limits (User only)
+    let remaining = "Unlimited";
+    if (role !== "admin") {
+      const user = await User.findOne({ email: userId });
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      if (user.aiQuestionCount >= 20) {
+        return res.status(403).json({
+          response:
+            "⚠️ You have reached your limit of 20 AI questions. You can still view the event rules, but I cannot answer new questions.",
+          limitReached: true,
+        });
+      }
+
+      // Increment count (using atomic update)
+      await User.updateOne({ email: userId }, { $inc: { aiQuestionCount: 1 } });
+      remaining = 20 - (user.aiQuestionCount + 1);
+    }
+
+    // 3. Call AI Service
     const aiResponse = await aiChat(message, Ename, userId, language);
-    return res.status(200).json({ response: aiResponse });
-  }
-  catch (err) {
-    return res.status(500).json({ message: "Error in AI chat", error: err.message });
+    return res.status(200).json({
+      response: aiResponse,
+      remainingQuestions: remaining,
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: "Error in AI chat", error: err.message });
   }
 };
 

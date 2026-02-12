@@ -25,6 +25,10 @@ const UserSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    aiQuestionCount: {
+      type: Number,
+      default: 0,
+    },
     expireAt: {
       type: Date,
       default: () => new Date(Date.now() + 10 * 60 * 1000),
@@ -55,11 +59,11 @@ const AdminSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
     },
-    events:{
-      type:[String],
-      default:[],
+    events: {
+      type: [String],
+      default: [],
     },
-    RegistrEvents:{
+    RegistrEvents: {
       type: [String],
       default: [],
     },
@@ -82,7 +86,7 @@ const passwordResetSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  role:{
+  role: {
     type: String,
   },
   expireAt: {
