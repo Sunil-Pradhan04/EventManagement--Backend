@@ -393,7 +393,6 @@ export const chatWithAi = async (req, res) => {
       }
     }
 
-    // 2. Check Limits (User only)
     let remaining = "Unlimited";
     if (role !== "admin") {
       const user = await User.findOne({ email: userId });

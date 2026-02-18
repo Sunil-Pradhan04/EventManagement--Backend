@@ -1,21 +1,38 @@
 import { openai } from "../DB/OpenAi.js";
 import { getTopChunks } from "./storage.js";
+import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const SARVAM_API_KEY = process.env.SARVAM_API_KEY || "";
 
 export const generateMail = async (userData) => {
   console.log("Generating mail for user data:", userData);
-  const resp = await openai.chat.completions.create({
-    model: "gpt-4.1-nano",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a message writting assistant. Write a professional and engaging message announcement for an event based on the user 1-2 line input. Try t make it a long annousment not too long, more then 3 line .",
+  const resp = await axios.post(
+    "https://api.sarvam.ai/v1/chat/completions",
+    {
+      model: "sarvam-m",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a message writting assistant. Write a professional and engaging message announcement for an event based on the user 1-2 line input. Try t make it a long annousment not too long, more then 3 line .",
+        },
+        { role: "user", content: userData },
+      ],
+      temperature: 0.7,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${SARVAM_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      { role: "user", content: userData },
-    ],
-  });
-  let replyBody = resp.choices[0].message.content;
-  console.log("🤐🤐", resp.usage);
+      timeout: 30000,
+    }
+  );
+  let replyBody = resp.data.choices[0].message.content;
+  console.log("🤐🤐", resp.data.usage);
   return replyBody;
 };
 
@@ -51,29 +68,40 @@ export const aiChat = async (message, Ename, userId, language = "English") => {
 
     const history = userChatHistory.get(effectiveUserId) || [];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
-      messages: [
-        {
-          role: "system",
-          content: `You are GEC EvetBot, an AI agent developed by Sunil, a polite and helpful assistant for GEC college events and games.
+    const response = await axios.post(
+      "https://api.sarvam.ai/v1/chat/completions",
+      {
+        model: "sarvam-m",
+        messages: [
+          {
+            role: "system",
+            content: `You are GEC EvetBot, an AI agent developed by Sunil, a polite and helpful assistant for GEC college events and games.
           Use the provided data to answer user queries about GEC events. 
           If the data does not contain the answer, politely inform the user that you don't have that information don't give any information which is not avalable in data.
           
           IMPORTANT: You MUST answer strictly in the '${language}' language.
           `,
+          },
+          {
+            role: "user",
+            content: `Data : ${context}\n`,
+          },
+          ...history,
+        ],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${SARVAM_API_KEY}`,
+          "Content-Type": "application/json",
         },
-        {
-          role: "user",
-          content: `Data : ${context}\n`,
-        },
-        ...history,
-      ],
-    });
-    console.log("AI Response Usage👉👉:", response.usage);
+        timeout: 30000,
+      }
+    );
+    console.log("AI Response Usage👉👉:", response.data.usage);
 
-    addChat(effectiveUserId, "assistant", response.choices[0].message.content);
-    return response.choices[0].message.content;
+    addChat(effectiveUserId, "assistant", response.data.choices[0].message.content);
+    return response.data.choices[0].message.content;
   } catch (err) {
     throw err;
   }
