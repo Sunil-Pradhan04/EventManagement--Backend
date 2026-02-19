@@ -1,6 +1,6 @@
 import { Admin, config, User, PasswordReset } from "../model/userSchema1.js";
 import { Event } from "../model/HubSchema.js";
-import { sendPasswordChangeMail, sendVerificationMail } from "../middleware/emailSetup.js";
+import { sendPasswordChangeMail, sendVerificationMail, sendWelcomeMail } from "../middleware/emailSetup.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateToken } from "../middleware/Auth.js";
@@ -160,7 +160,11 @@ export const verifyUser = async (req, res) => {
     account.expireAt = undefined;
     await account.save();
 
-    // Generate Token
+    // Send Welcome Mail
+    sendWelcomeMail(account.email, account.name).catch(err =>
+      console.error("Failed to send welcome mail to", account.email)
+    );
+
     const token = generateToken(account.email, role);
 
     res.cookie("token", token, {
@@ -179,7 +183,6 @@ export const verifyUser = async (req, res) => {
   }
 };
 
-// ------------------- RESEND VERIFICATION CODE -------------------
 
 export const resendVerificationEmail = async (req, res) => {
   try {
@@ -201,16 +204,13 @@ export const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ message: "Account already verified" });
     }
 
-    // Generate new verification code
     const code = Math.floor(100000 + Math.random() * 900000);
     const hashCode = await bcrypt.hash(code.toString(), 10);
 
-    // Update account with new code & expiry
     account.verificationCode = hashCode;
     account.expireAt = new Date(Date.now() + 10 * 60 * 1000);
     await account.save();
 
-    // Send using your custom mail function
     await sendVerificationMail(email, code.toString());
 
     res.status(200).json({
@@ -220,8 +220,6 @@ export const resendVerificationEmail = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
-
-// ------------------- GET USERS -------------------
 
 export const getUsers = async (req, res) => {
   try {

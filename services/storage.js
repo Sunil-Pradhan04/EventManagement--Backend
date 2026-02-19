@@ -65,11 +65,11 @@ export const getTopChunks = async (queryText, eventId) => {
 export const deleteTextFromVectorDB = async (eventId) => {
   console.log("Deleting vectors for event:", eventId);
   try {
-    // Delete by metadata filter (eventId)
-    // Using simple object for filter as per common Pinecone SDK usage for metadata deletion
-    await index.deleteMany({ eventId: { $eq: eventId } });
+    await index.deleteMany({ filter: { eventId: { $eq: eventId } } });
     console.log(`✅ Deleted vectors for event: ${eventId}`);
   } catch (err) {
     console.error("Error deleting vectors:", err);
   }
 };
+
+deleteTextFromVectorDB("CodeCraft");

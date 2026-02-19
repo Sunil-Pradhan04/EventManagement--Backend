@@ -1,4 +1,4 @@
-import { sendEventAnnouncementMail, sendNewEventMail } from "../middleware/emailSetup.js";
+import { sendEventAnnouncementMail, sendNewEventMail, sendEventRegistrationSuccessMail } from "../middleware/emailSetup.js";
 import { Event, EventAnoussment, EnrollmentModel } from "../model/HubSchema.js";
 import { Admin, User } from "../model/userSchema1.js";
 // import { generateMail } from "../services/ai.service.js";
@@ -73,9 +73,8 @@ export const createEvent = async (req, res) => {
 
       console.log(`Sending new event mail to ${uniqueRecipients.length} users...`);
 
-      const eventLink = `http://localhost:5173/EventPage/${newEvent._id}`;
+      const eventLink = `https://event-management-frontend-eqe7.vercel.app/EventPage/${newEvent._id}`;
 
-      // In production, use a queue. Here we just map promises (careful with large lists)
       uniqueRecipients.forEach(email => {
         sendNewEventMail(email, Ename, eventLink).catch(err => console.error("Failed mail to", email));
       });
@@ -325,6 +324,11 @@ export const Enrollment = async (req, res) => {
 
     await user.save();
     await newEnrollment.save();
+
+    // Send confirmation email
+    sendEventRegistrationSuccessMail(UserEmail, userName, EventName).catch(err =>
+      console.error("Failed to send registration mail to", UserEmail)
+    );
 
     res.status(201).json({
       message: "✅ Enrollment successful",
