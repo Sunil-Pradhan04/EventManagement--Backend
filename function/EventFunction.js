@@ -3,7 +3,7 @@ import { Event, EventAnoussment, EnrollmentModel } from "../model/HubSchema.js";
 import { Admin, User } from "../model/userSchema1.js";
 // import { generateMail } from "../services/ai.service.js";
 import { aiChat, generateMail } from "../services/ai.service.js";
-import { storeTextInVectorDB } from "../services/storage.js";
+import { storeTextInVectorDB, deleteTextFromVectorDB } from "../services/storage.js";
 
 export const createEvent = async (req, res) => {
   const {
@@ -22,7 +22,7 @@ export const createEvent = async (req, res) => {
 
   const exist = await Event.findOne({ Ename });
   if (exist) {
-    return res.status(401).json({ message: "This Event alredy Exists" });
+    return res.status(401).json({ message: "This Event already exists" });
   }
   if (
     !Ename ||
@@ -152,6 +152,13 @@ export const getEventById = async (req, res) => {
       return res.status(404).json({ message: "Event not found" });
     }
 
+    if (event.visibility === false) {
+      const role = req.session.role;
+      if (role !== "admin") {
+        return res.status(403).json({ message: "Access Denied: Event is hidden" });
+      }
+    }
+
     res.status(200).json(event);
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -165,13 +172,12 @@ export const toggleEventVisibility = async (req, res) => {
     const event = await Event.findById(id);
     const eAdmin = req.session.userId;
     if (!event.EventAdmin.includes(eAdmin)) {
-      return res.status(401).json({ message: "Unauthorised Access" });
+      return res.status(401).json({ message: "Unauthorized Access" });
     }
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // If event is finished and we are making it visible again, reset status
     if (!event.visibility && event.status === "finished") {
       event.status = "upcoming";
       event.winners = [];
@@ -181,7 +187,7 @@ export const toggleEventVisibility = async (req, res) => {
 
     res.status(200).json({
       message: `✅ Event visibility updated successfully`,
-      event, // return the full event object
+      event,
     });
   } catch (err) {
     res.status(500).json({
@@ -208,7 +214,6 @@ export const addEventAnoussment = async (req, res) => {
 
     await newAnoussment.save();
 
-    // Send Notification to Participants if requested
     if (sendNotification) {
       const enrollments = await EnrollmentModel.find({ EventName: Ename });
       if (enrollments.length > 0) {
@@ -278,6 +283,19 @@ export const Enrollment = async (req, res) => {
 
     if (existUser) {
       return res.status(400).json({ message: "You are already enrolled." });
+    }
+
+    const event = await Event.findOne({ Ename: EventName });
+    if (!event) {
+      return res.status(404).json({ message: "Event not found." });
+    }
+    if (event.visibility === false) {
+
+      const userId = req.session.userId;
+      const isAdmin = await Admin.findOne({ email: userId });
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Registration is closed for this hidden event." });
+      }
     }
 
     if (!EventName || !UserEmail) {
@@ -350,8 +368,6 @@ export const sendEmail = async (req, res) => {
 
     console.log(`Found ${enrollments.length} participants for event: ${eventName}`);
 
-    // Loop through enrollments and send email
-    // In a production environment, use a queue (like BullMQ) or batching to avoid timeout
     const emailPromises = enrollments.map((enrollment) =>
       sendEventAnnouncementMail(
         enrollment.UserEmail,
@@ -370,7 +386,7 @@ export const sendEmail = async (req, res) => {
   }
 };
 export const chatWithAi = async (req, res) => {
-  const { message, Ename, language } = req.body;
+  const { message, Ename, language, history } = req.body;
   const userId = req.session.userId;
   const role = req.session.role;
 
@@ -411,8 +427,8 @@ export const chatWithAi = async (req, res) => {
       remaining = 20 - (user.aiQuestionCount + 1);
     }
 
-    // 3. Call AI Service
-    const aiResponse = await aiChat(message, Ename, userId, language);
+    // 3. Call AI Service (pass frontend history instead of userId)
+    const aiResponse = await aiChat(message, Ename, history || [], language);
     return res.status(200).json({
       response: aiResponse,
       remainingQuestions: remaining,
@@ -495,7 +511,6 @@ export const deleteEvent = async (req, res) => {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // Remove from User and Admin RegistrEvents
     await User.updateMany(
       { RegistrEvents: event.Ename },
       { $pull: { RegistrEvents: event.Ename } }
@@ -506,17 +521,17 @@ export const deleteEvent = async (req, res) => {
       { $pull: { RegistrEvents: event.Ename } }
     );
 
-    // Remove from Coordinator's event list
     await Admin.updateMany(
       { events: event.Ename },
       { $pull: { events: event.Ename } }
     );
 
-    // Delete related data
     await EnrollmentModel.deleteMany({ EventName: event.Ename });
     await EventAnoussment.deleteMany({ Ename: event.Ename });
 
-    // Delete the event itself
+    // Delete from Vector DB (Pinecone)
+    await deleteTextFromVectorDB(event.Ename);
+
     await Event.findByIdAndDelete(id);
 
     res.status(200).json({ message: "✅ Event and all related data deleted successfully" });

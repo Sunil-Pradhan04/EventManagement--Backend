@@ -47,10 +47,10 @@ export const getTopChunks = async (queryText, eventId) => {
     const queryEmbedding = await getBatchEmbeddings(queryText);
     const result = await index.query({
       vector: queryEmbedding,
-      topK: 3,                
+      topK: 3,
       includeMetadata: true,
       filter: {
-        eventId: { $eq: eventId }   
+        eventId: { $eq: eventId }
       }
     });
     console.log("Query result:", result.matches[1].metadata);
@@ -61,3 +61,15 @@ export const getTopChunks = async (queryText, eventId) => {
 };
 
 // getTopChunks("What is token", "LUDO")
+
+export const deleteTextFromVectorDB = async (eventId) => {
+  console.log("Deleting vectors for event:", eventId);
+  try {
+    // Delete by metadata filter (eventId)
+    // Using simple object for filter as per common Pinecone SDK usage for metadata deletion
+    await index.deleteMany({ eventId: { $eq: eventId } });
+    console.log(`✅ Deleted vectors for event: ${eventId}`);
+  } catch (err) {
+    console.error("Error deleting vectors:", err);
+  }
+};

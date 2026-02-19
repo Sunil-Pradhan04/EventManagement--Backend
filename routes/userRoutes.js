@@ -7,7 +7,7 @@ import {
   loginUser,
   requestPasswordChange,
   resendVerificationEmail,
-  veryfayUser,
+  verifyUser,
   logoutUser,
 } from "../function/function.js";
 
@@ -53,7 +53,7 @@ router.get("/check-session", (req, res) => {
 
 router.post("/create", createUser);
 router.get("/", Auth, getUsers);
-router.post("/verification", veryfayUser);
+router.post("/verification", verifyUser);
 router.post("/login", loginUser);
 router.post("/createAdmin", createAdmin);
 router.post("/resendCode", resendVerificationEmail);

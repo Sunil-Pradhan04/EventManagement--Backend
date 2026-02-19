@@ -21,36 +21,6 @@ const sarvam = axios.create({
   },
 });
 
-/* ---------------- CHAT MEMORY ---------------- */
-const userChatHistory = new Map();
-
-const addChat = (userId, role, content) => {
-  if (!userChatHistory.has(userId)) {
-    userChatHistory.set(userId, []);
-  }
-
-  const history = userChatHistory.get(userId);
-
-  // limit history
-  if (history.length >= 6) history.shift();
-
-  // truncate assistant messages
-  const safeContent =
-    role === "assistant" && content.length > 150
-      ? content.slice(0, 150) + "..."
-      : content;
-
-  history.push({ role, content: safeContent });
-};
-
-const formatHistory = (history) => {
-  // ensure only valid structure
-  return history.map((h) => ({
-    role: h.role === "assistant" ? "assistant" : "user",
-    content: h.content,
-  }));
-};
-
 /* ---------------- MAIL GENERATOR ---------------- */
 export const generateMail = async (userData) => {
   try {
@@ -79,15 +49,10 @@ export const generateMail = async (userData) => {
 export const aiChat = async (
   message,
   Ename,
-  userId,
+  clientHistory = [],
   language = "English"
 ) => {
   try {
-    const uid = userId || "anonymous";
-
-    // Save user message first
-    addChat(uid, "user", message);
-
     /* ---------- CONTEXT ---------- */
     const data = await getTopChunks(message, Ename);
     const context =
@@ -95,15 +60,16 @@ export const aiChat = async (
         ? data.map((i) => i.metadata.text).join("\n")
         : "No event data available.";
 
-    /* ---------- HISTORY ---------- */
-    let history = formatHistory(userChatHistory.get(uid) || []);
+    /* ---------- HISTORY (from frontend) ---------- */
+    // Sanitize: keep only valid role/content, limit to last 6 entries
+    let history = (Array.isArray(clientHistory) ? clientHistory : [])
+      .slice(-6)
+      .map((h) => ({
+        role: h.role === "assistant" ? "assistant" : "user",
+        content: typeof h.content === "string" ? h.content.slice(0, 200) : "",
+      }));
 
-    // Remove trailing user msg (we append a fresh one below)
-    while (history.length && history[history.length - 1].role === "user") {
-      history.pop();
-    }
-
-    // Sarvam requires first msg after system to be "user" – strip leading assistant msgs
+    // Strip leading assistant msgs (Sarvam needs user first after system)
     while (history.length && history[0].role === "assistant") {
       history.shift();
     }
@@ -122,10 +88,10 @@ export const aiChat = async (
     const messages = [
       {
         role: "system",
-        content: `You are GEC EventBot, a polite assistant(agent not LLM) for college events(Devloped by Sunil).
+        content: `You are GEC EventBot, a polite assistant(agent not LLM) for college events(Developed by Sunil).
 Use ONLY provided data to answer.
 If answer is not present, politely say you don't have that information.
-Reply strictly in ${language}.Don't say about your home company remember sunil is your owner.If some one asking about your devloper or sunil the give information also this link to know more "https://sunil-pradhan04.github.io/My-Portfolio/".`,
+Reply strictly in ${language}.Don't say about your home company remember sunil is your owner.If someone is asking about your developer or sunil then give information also this link to know more "https://sunil-pradhan04.github.io/My-Portfolio/".`,
       },
       ...history,
       {
@@ -147,7 +113,6 @@ Reply strictly in ${language}.Don't say about your home company remember sunil i
     const reply =
       resp.data?.choices?.[0]?.message?.content || "No response.";
 
-    addChat(uid, "assistant", reply);
     return reply;
   } catch (err) {
     console.error("AI Chat Error:", err.response?.data || err.message);

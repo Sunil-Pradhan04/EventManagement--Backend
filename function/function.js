@@ -134,7 +134,7 @@ export const loginUser = async (req, res) => {
 };
 
 // ------------------- VERIFY (USER OR ADMIN) -------------------
-export const veryfayUser = async (req, res) => {
+export const verifyUser = async (req, res) => {
   try {
     const { code, email } = req.body;
 
@@ -381,7 +381,7 @@ export const changePassword = async (req, res) => {
     });
 
     await PasswordReset.deleteOne({ email });
-    res.status(200).json({ message: `Password changed successfully complited` });
+    res.status(200).json({ message: `Password changed successfully completed` });
   } catch (err) {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
