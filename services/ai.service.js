@@ -5,6 +5,21 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+/* ---------------- HELPERS ---------------- */
+
+/**
+ * Strips <think>...</think> reasoning blocks emitted by some LLMs.
+ * Also handles malformed/unclosed <think> tags (e.g. </ink>, missing close).
+ */
+function extractFinalMessage(content) {
+  return content
+    .replace(/<think>[\s\S]*?<\/think>/gi, "") // well-formed blocks
+    .replace(/<think>[\s\S]*/gi, "")           // unclosed <think> — remove everything after it
+    .trim();
+}
+
+
+
 /* ---------------- ENV ---------------- */
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
 if (!SARVAM_API_KEY) {
@@ -38,7 +53,8 @@ export const generateMail = async (userData) => {
       max_tokens: 400,
     });
 
-    return resp.data?.choices?.[0]?.message?.content || "";
+    const raw = resp.data?.choices?.[0]?.message?.content || "";
+    return extractFinalMessage(raw);
   } catch (err) {
     console.error("Mail error:", err.response?.data || err.message);
     return "Unable to generate message right now.";
@@ -60,8 +76,6 @@ export const aiChat = async (
         ? data.map((i) => i.metadata.text).join("\n")
         : "No event data available.";
 
-    /* ---------- HISTORY (from frontend) ---------- */
-    // Sanitize: keep only valid role/content, limit to last 6 entries
     let history = (Array.isArray(clientHistory) ? clientHistory : [])
       .slice(-6)
       .map((h) => ({
@@ -88,10 +102,21 @@ export const aiChat = async (
     const messages = [
       {
         role: "system",
-        content: `You are GEC EventBot, a polite assistant(agent not LLM) for college events(Developed by Sunil).
-Use ONLY provided data to answer.
-If answer is not present, politely say you don't have that information.
-Reply strictly in ${language}.Don't say about your home company remember sunil is your owner.If someone is asking about your developer or sunil then give information also this link to know more "https://sunil-pradhan04.github.io/My-Portfolio/".`,
+        content: `You are a strict AI assistant known as EventChatBot.
+
+RULES:
+- Answer ONLY from the provided CONTEXT.
+- Do NOT guess or use outside knowledge.
+- If the answer is not in CONTEXT, say:
+  "I don't have enough information to answer that."
+- Keep answers short but not very short it must easely understandable.
+
+EXCEPTION:
+- For greetings or casual messages (like "hi", "hello", "thank you", "good morning"), reply politely in one short sentence.
+
+SPECIAL RULE:
+- If the user asks about "developer" or "Sunil", respond respectfully:
+  "This AI was developed by Sunil, a skilled full-stack developer passionate about AI and modern technologies. You can view his portfolio here: https://sunil-pradhan04.github.io/My-Portfolio/"`
       },
       ...history,
       {
@@ -104,14 +129,15 @@ Reply strictly in ${language}.Don't say about your home company remember sunil i
     const resp = await sarvam.post("/chat/completions", {
       model: "sarvam-m",
       messages,
-      temperature: 1,
-      max_tokens: 500,
     });
 
-    console.log(resp.data);
+    console.log(resp.data?.choices?.[0]?.message?.content);
 
-    const reply =
+    const raw =
       resp.data?.choices?.[0]?.message?.content || "No response.";
+    const reply = extractFinalMessage(raw);
+
+    console.log(resp.data.usage);
 
     return reply;
   } catch (err) {
