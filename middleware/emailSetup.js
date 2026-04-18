@@ -259,44 +259,40 @@ export const sendPortfolioWelcomeMail = async (to, userName) => {
   try {
     const greeting = getGreeting();
 
+    const FEEDBACK_LINK = "https://sunil-pradhan04.github.io/VISTORA/#/feedback";
+
     const html = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; max-width: 600px; margin: auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e0e0e0;">
-        <!-- Header Image or Gradient Banner -->
-        <div style="background: linear-gradient(135deg, #FF6B6B 0%, #C0392B 100%); padding: 40px 20px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px;">Welcome to Vistora! 📸🍿</h1>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea;">
+        
+        <div style="background: #111; padding: 40px 20px; text-align: center;">
+          <h1 style="color: #fff; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px;">Welcome to Vistora! 📸🍿</h1>
         </div>
         
-        <!-- Main Content -->
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0; font-size: 22px;">${greeting}, <span style="color: #E74C3C;">${userName}</span>! 👋</h2>
+        <div style="padding: 40px 30px; text-align: center;">
+          <h2 style="color: #333; margin-top: 0; font-size: 22px;">Hey <span style="color: #E74C3C;">${userName}</span>! 👋</h2>
           
-          <p style="font-size: 16px; color: #4b5563; line-height: 1.6; margin-bottom: 24px;">
-            I am thrilled to have you here. <b>Vistora</b> is your ultimate platform to discover, watch, and download an amazing variety of videos and captivating photos curated just for you.
+          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 24px;">
+            Thank you for checking out <b>Vistora</b>! It's a platform built for you to discover, watch, and download amazing videos and photos instantly.
           </p>
           
-          <div style="background: #fdf2f2; border-left: 4px solid #E74C3C; padding: 15px 20px; border-radius: 4px; margin-bottom: 30px;">
-            <p style="margin: 0; color: #374151; font-size: 15px; font-style: italic;">
-              "Immerse yourself in stunning visual content. Whether you're looking for inspiration or just entertainment, Vistora brings the world's media to your screen!"
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; color: #4b5563; line-height: 1.6;">
-            If you're curious about how platforms like Vistora are built, or would like to see my other web development creations, feel free to visit my personal portfolio:
+          <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 30px;">
+            This project means a lot to me, and I would love to hear what you think of it!
           </p>
-          
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 35px 0;">
-            <a href="${PORTFOLIO_LINK}" style="background-color: #E74C3C; color: white; text-decoration: none; padding: 14px 28px; font-size: 16px; font-weight: 600; border-radius: 30px; display: inline-block; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.25);">
-              Explore My Portfolio
+
+          <div style="text-align: center; margin-bottom: 35px;">
+            <a href="${FEEDBACK_LINK}" style="background-color: #E74C3C; color: white; text-decoration: none; padding: 14px 28px; font-size: 15px; font-weight: 600; border-radius: 30px; display: inline-block; margin: 10px;">
+              ⭐ Give Quick Feedback
+            </a>
+            <a href="${PORTFOLIO_LINK}" style="background-color: #333; color: white; text-decoration: none; padding: 14px 28px; font-size: 15px; font-weight: 600; border-radius: 30px; display: inline-block; margin: 10px;">
+              View My Portfolio
             </a>
           </div>
           
-          <p style="font-size: 15px; color: #6b7280; text-align: center; margin-bottom: 0;">
+          <p style="font-size: 15px; color: #888; margin-bottom: 0;">
             Enjoy your stay,<br>
-            <strong style="color: #374151;">${SENDER_NAME}</strong>
+            <strong style="color: #333;">${SENDER_NAME}</strong>
           </p>
         </div>
-        ${getFooter()}
       </div>
     `;
 

@@ -11,6 +11,7 @@ import {
   logoutUser,
 } from "../function/function.js";
 import { addVisitor } from "../function/visitorFunction.js";
+import { addFeedback } from "../function/feedbackFunction.js";
 
 import express from "express";
 import jwt from "jsonwebtoken";
@@ -78,5 +79,6 @@ router.delete("/deleteEvent/:id", AdminAuth, deleteEvent);
 router.put("/updateEvent/:id", AdminAuth, updateEvent);
 router.post("/logout", logoutUser);
 router.post("/visitor", addVisitor);
+router.post("/feedback", addFeedback);
 
 export default router;
