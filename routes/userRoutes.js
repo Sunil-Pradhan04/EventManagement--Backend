@@ -10,6 +10,7 @@ import {
   verifyUser,
   logoutUser,
 } from "../function/function.js";
+import { addVisitor } from "../function/visitorFunction.js";
 
 import express from "express";
 import jwt from "jsonwebtoken";
@@ -76,6 +77,6 @@ router.post("/finishEvent", AdminAuth, finishEvent); // Using POST as per previo
 router.delete("/deleteEvent/:id", AdminAuth, deleteEvent);
 router.put("/updateEvent/:id", AdminAuth, updateEvent);
 router.post("/logout", logoutUser);
-
+router.post("/visitor", addVisitor);
 
 export default router;
