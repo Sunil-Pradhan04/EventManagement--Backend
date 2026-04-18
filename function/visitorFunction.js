@@ -2,6 +2,7 @@ import { Visitor } from "../model/visitorSchema.js";
 import { sendPortfolioWelcomeMail } from "../middleware/emailSetup.js";
 
 export const addVisitor = async (req, res) => {
+  console.log("Visitor added");
   try {
     const { name, email } = req.body;
 

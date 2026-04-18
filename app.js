@@ -11,15 +11,27 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+// Allow multiple comma-separated URLs from clientURL, Default to blank array if undefined
+const allowedOrigins = process.env.clientURL ? process.env.clientURL.split(',') : [];
+
 app.use(
   cors({
-    origin: process.env.clientURL,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
 
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", process.env.clientURL);
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
