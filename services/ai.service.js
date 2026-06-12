@@ -87,7 +87,6 @@ export const aiChat = async (
     }
     history = cleaned;
     console.log(history);
-    console.log("🌄🌄🌄🌄`=", language);
     const messages1 = [
       {
         role: "system",
@@ -115,11 +114,16 @@ You will receive:
 
 Use Event Data only when it is necessary to answer the user's question.
 "`,
-      },
+      },{
+        role: "assistant",
+        content: `Event Data: ${context}. This is the Database content about event`
+      }
+      ,
       ...history,
+
       {
         role: "user",
-        content: `Event Data:\n${context}\n\nQuestion: ${message}`,
+        content: message,
       },
     ];
 
@@ -138,9 +142,6 @@ Use Event Data only when it is necessary to answer the user's question.
 
     const r = await response.json();
 
-    console.log(r);
-    console.log(r.choices[0].message.content);
-
     return r.choices[0].message.content;
   } catch (err) {
     console.error("AI Chat Error:", err.response?.data || err.message);
@@ -148,7 +149,6 @@ Use Event Data only when it is necessary to answer the user's question.
   }
 };
 
-/* ---------------- EMBEDDINGS ---------------- */
 export const getBatchEmbeddings = async (texts) => {
   try {
     if (!texts || texts.length === 0) return [];
@@ -164,63 +164,3 @@ export const getBatchEmbeddings = async (texts) => {
     return [];
   }
 };
-
-// export const test = async(message, Ename, clientHistory = []) => {
-
-//   const data = await getTopChunks(message, Ename);
-//     const context =
-//       data?.length > 0
-//         ? data.map((i) => i.metadata.text).join("\n")
-//         : "No event data available.";
-
-//     console.log("👉👉👉👉", context);
-
-//     let history = (Array.isArray(clientHistory) ? clientHistory : [])
-//       .slice(-6)
-//       .map((h) => ({
-//         role: h.role === "assistant" ? "assistant" : "user",
-//         content: typeof h.content === "string" ? h.content.slice(0, 200) : "",
-//       }));
-
-//     while (history.length && history[0].role === "assistant") {
-//       history.shift();
-//     }
-//     const cleaned = [];
-//     for (const msg of history) {
-//       const prev = cleaned[cleaned.length - 1];
-//       if (!prev || prev.role !== msg.role) {
-//         cleaned.push(msg);
-//       }
-//     }
-//     history = cleaned;
-//     console.log(history);
-
-//    const response = await fetch(endpoint, {
-//       method: "POST",
-//       headers: {
-//         "Content-Type": "application/json",
-//         Authorization: `Bearer ${SARVAM_API_KEY}`,
-//       },
-//       body: JSON.stringify({
-//         model: "sarvam-105b",
-//         messages: [
-//           {
-//             role: "system",
-//             content: `Replay the message also use these context ${context}`,
-//           },
-//           {
-//             role: "user",
-//             content: message,
-//           },
-//         ],
-//         reasoning_effort: null,
-//       }),
-//     });
-
-//     const r = await response.json();
-//     console.log(data);
-//     console.log(r.choices[0].message.content);
-//     return r.choices[0].message.content;
-// }
-
-// // test("Hii")
