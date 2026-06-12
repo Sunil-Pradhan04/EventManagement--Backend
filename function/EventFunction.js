@@ -394,6 +394,8 @@ export const chatWithAi = async (req, res) => {
   const userId = req.session.userId;
   const role = req.session.role;
 
+  console.log("👉👉Used")
+
   try {
     // 1. Check for "Rules" optimization (Skip AI)
     const lowerMsg = message.toLowerCase();
@@ -425,6 +427,8 @@ export const chatWithAi = async (req, res) => {
           limitReached: true,
         });
       }
+    
+      console.log('reached')
 
       // Increment count (using atomic update)
       await User.updateOne({ email: userId }, { $inc: { aiQuestionCount: 1 } });
@@ -437,6 +441,7 @@ export const chatWithAi = async (req, res) => {
       response: aiResponse,
       remainingQuestions: remaining,
     });
+
   } catch (err) {
     return res
       .status(500)

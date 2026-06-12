@@ -5,56 +5,47 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-/* ---------------- HELPERS ---------------- */
-
-/**
- * Strips <think>...</think> reasoning blocks emitted by some LLMs.
- * Also handles malformed/unclosed <think> tags (e.g. </ink>, missing close).
- */
 function extractFinalMessage(content) {
   return content
-    .replace(/<think>[\s\S]*?<\/think>/gi, "") // well-formed blocks
-    .replace(/<think>[\s\S]*/gi, "")           // unclosed <think> — remove everything after it
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*/gi, "")
     .trim();
 }
 
+const endpoint = "https://api.sarvam.ai/v1/chat/completions";
 
-
-/* ---------------- ENV ---------------- */
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
-if (!SARVAM_API_KEY) {
-  throw new Error("SARVAM_API_KEY missing in .env");
-}
-
-/* ---------------- AXIOS INSTANCE ---------------- */
-const sarvam = axios.create({
-  baseURL: "https://api.sarvam.ai/v1",
-  timeout: 30000,
-  headers: {
-    Authorization: `Bearer ${SARVAM_API_KEY}`,
-    "Content-Type": "application/json",
-  },
-});
 
 /* ---------------- MAIL GENERATOR ---------------- */
 export const generateMail = async (userData) => {
+  console.log("[👉👉called");
   try {
-    const resp = await sarvam.post("/chat/completions", {
-      model: "sarvam-m",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional announcement writer. Write a clear, engaging event announcement in 3–6 lines.",
-        },
-        { role: "user", content: userData },
-      ],
-      temperature: 0.7,
-      max_tokens: 400,
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SARVAM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "sarvam-105b",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Write annoucment according to given message from user. Your work is write a formal annousment for paticipents becouse user dont want to write a long message. So user will give a short topic and you have to convert it to a professional and formal annoucement.Return a normal paragraph. Dont give answer of any question instade of annoucment request",
+          },
+          {
+            role: "user",
+            content: userData,
+          },
+        ],
+        reasoning_effort: null,
+      }),
     });
 
-    const raw = resp.data?.choices?.[0]?.message?.content || "";
-    return extractFinalMessage(raw);
+    const r = await response.json();
+    console.log(r);
+    return r.choices[0].message.content;
   } catch (err) {
     console.error("Mail error:", err.response?.data || err.message);
     return "Unable to generate message right now.";
@@ -66,15 +57,16 @@ export const aiChat = async (
   message,
   Ename,
   clientHistory = [],
-  language = "English"
+  language = "English",
 ) => {
   try {
-    /* ---------- CONTEXT ---------- */
     const data = await getTopChunks(message, Ename);
     const context =
       data?.length > 0
         ? data.map((i) => i.metadata.text).join("\n")
         : "No event data available.";
+
+    console.log("👉👉👉👉", context);
 
     let history = (Array.isArray(clientHistory) ? clientHistory : [])
       .slice(-6)
@@ -83,12 +75,9 @@ export const aiChat = async (
         content: typeof h.content === "string" ? h.content.slice(0, 200) : "",
       }));
 
-    // Strip leading assistant msgs (Sarvam needs user first after system)
     while (history.length && history[0].role === "assistant") {
       history.shift();
     }
-
-    // Enforce strict user/assistant alternation
     const cleaned = [];
     for (const msg of history) {
       const prev = cleaned[cleaned.length - 1];
@@ -97,26 +86,35 @@ export const aiChat = async (
       }
     }
     history = cleaned;
-
-    /* ---------- MESSAGES ---------- */
-    const messages = [
+    console.log(history);
+    console.log("🌄🌄🌄🌄`=", language);
+    const messages1 = [
       {
         role: "system",
-        content: `You are a strict AI assistant known as EventChatBot.
+        content: `You are Orbit (Event Project Version), an AI assistant built by Sunil.
 
-RULES:
-- Answer ONLY from the provided CONTEXT.
-- Do NOT guess or use outside knowledge.
-- If the answer is not in CONTEXT, say:
-  "I don't have enough information to answer that."
-- Keep answers short but not very short it must easely understandable.
+Your primary role is to help users with questions related to the event using the provided Event Data.
 
-EXCEPTION:
-- For greetings or casual messages (like "hi", "hello", "thank you", "good morning"), reply politely in one short sentence.
+Rules:
 
-SPECIAL RULE:
-- If the user asks about "developer" or "Sunil", respond respectfully:
-  "This AI was developed by Sunil, a skilled full-stack developer passionate about AI and modern technologies. You can view his portfolio here: https://sunil-pradhan04.github.io/My-Portfolio/"`
+1. If the user's question is related to the event, answer using only the provided Event Data.
+2. If the required information is not available in the Event Data, reply:
+   "I couldn't find that information in the event details."
+3. Do not invent, assume, or hallucinate event information.
+4. If the user is having a normal conversation (greetings, thanks, who are you, how are you, jokes, etc.), respond naturally.
+5. Keep responses clear, concise, and friendly.
+6. If the user asks about the developer, creator, or builder of Orbit, mention that Orbit was built by Sunil and share this portfolio:
+   https://sunil-pradhan04.github.io/My-Portfolio/
+7. Dont give any information like "according to given data  or context"
+
+You will receive:
+
+* Event Data (context)
+* User Question 
+* Important - Always use "${language}" language for answer.
+
+Use Event Data only when it is necessary to answer the user's question.
+"`,
       },
       ...history,
       {
@@ -125,21 +123,25 @@ SPECIAL RULE:
       },
     ];
 
-    /* ---------- API CALL ---------- */
-    const resp = await sarvam.post("/chat/completions", {
-      model: "sarvam-m",
-      messages,
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SARVAM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "sarvam-105b",
+        messages: messages1,
+        reasoning_effort: null,
+      }),
     });
 
-    console.log(resp.data?.choices?.[0]?.message?.content);
+    const r = await response.json();
 
-    const raw =
-      resp.data?.choices?.[0]?.message?.content || "No response.";
-    const reply = extractFinalMessage(raw);
+    console.log(r);
+    console.log(r.choices[0].message.content);
 
-    console.log(resp.data.usage);
-
-    return reply;
+    return r.choices[0].message.content;
   } catch (err) {
     console.error("AI Chat Error:", err.response?.data || err.message);
     return "AI service temporarily unavailable.";
@@ -162,3 +164,63 @@ export const getBatchEmbeddings = async (texts) => {
     return [];
   }
 };
+
+// export const test = async(message, Ename, clientHistory = []) => {
+
+//   const data = await getTopChunks(message, Ename);
+//     const context =
+//       data?.length > 0
+//         ? data.map((i) => i.metadata.text).join("\n")
+//         : "No event data available.";
+
+//     console.log("👉👉👉👉", context);
+
+//     let history = (Array.isArray(clientHistory) ? clientHistory : [])
+//       .slice(-6)
+//       .map((h) => ({
+//         role: h.role === "assistant" ? "assistant" : "user",
+//         content: typeof h.content === "string" ? h.content.slice(0, 200) : "",
+//       }));
+
+//     while (history.length && history[0].role === "assistant") {
+//       history.shift();
+//     }
+//     const cleaned = [];
+//     for (const msg of history) {
+//       const prev = cleaned[cleaned.length - 1];
+//       if (!prev || prev.role !== msg.role) {
+//         cleaned.push(msg);
+//       }
+//     }
+//     history = cleaned;
+//     console.log(history);
+
+//    const response = await fetch(endpoint, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//         Authorization: `Bearer ${SARVAM_API_KEY}`,
+//       },
+//       body: JSON.stringify({
+//         model: "sarvam-105b",
+//         messages: [
+//           {
+//             role: "system",
+//             content: `Replay the message also use these context ${context}`,
+//           },
+//           {
+//             role: "user",
+//             content: message,
+//           },
+//         ],
+//         reasoning_effort: null,
+//       }),
+//     });
+
+//     const r = await response.json();
+//     console.log(data);
+//     console.log(r.choices[0].message.content);
+//     return r.choices[0].message.content;
+// }
+
+// // test("Hii")
